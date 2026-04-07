@@ -7,7 +7,8 @@ drop procedure if exists `inEmployee`;
 delimiter $$
 create procedure `inEmployee`
 /* Data to receive from the API */
-(in `in_name` varchar(50), in `in_surname` varchar(50), in `in_username` varchar(20), in `in_passwordHash` varchar(255), in `in_shift` varchar(30), in `in_phone` varchar(15), in `in_photo` varchar(255))
+(in `in_name` varchar(50), in `in_surname` varchar(50), in `in_username` varchar(20), in `in_passwordHash` varchar(255), 
+in `in_shift` varchar(30), in `in_phone` varchar(15), in `in_photo` varchar(255))
 begin
 	/* checks if the employee username already exists */
 	if not exists(select employee_id from employees where `in_username` = e_username)
@@ -16,9 +17,11 @@ begin
 		if not exists(select employee_id from employees where `in_name` = e_name and `in_surname` = e_surname)
         then
 			if in_photo = ' ' or in_photo is null then
-				insert into employees(`e_name`, `e_surname`, `e_username`, `e_passwordHash`, `e_shift`, `e_phone`) values(in_name, in_surname, in_username, in_passwordHash, in_shift, in_phone);
+				insert into employees(`e_name`, `e_surname`, `e_username`, `e_passwordHash`, `e_shift`, `e_phone`) 
+                values(in_name, in_surname, in_username, in_passwordHash, in_shift, in_phone);
 			else
-				insert into employees(`e_name`, `e_surname`, `e_username`, `e_passwordHash`, `e_shift`, `e_phone`, `e_profilePhoto`) values(in_name, in_surname, in_username, in_passwordHash, in_shift, in_phone, in_photo);
+				insert into employees(`e_name`, `e_surname`, `e_username`, `e_passwordHash`, `e_shift`, `e_phone`, `e_profilePhoto`) 
+                values(in_name, in_surname, in_username, in_passwordHash, in_shift, in_phone, in_photo);
             end if;
         end if;
 	else
@@ -66,18 +69,26 @@ drop procedure if exists `decProduct` $$
 create procedure `decProduct`
 (in `in_code` varchar(10), in `in_amount` int)
 begin
+	declare amount int;
+    set amount = (select p_amount from products where product_code = in_code);
 	/* Check if the specified product exists */
 	if exists(select product_code from products where product_code = in_code and p_state != 'discontinued')
     then
-    /* If the amount in shich the stock should be decrease in is higher than the actual stock, we block the petition */
-		if(select p_amount from products where product_code = in_code) >= in_amount
+    /* If the amount in which the stock should be decreased in is higher than the actual stock, we block the petition */
+		if amount > in_amount
         then
+			/* Update the stock otherwise*/
 			update products set p_amount = p_amount - in_amount where product_code = in_code;
-        else
+            /* If the amount reaches 0, we change the state to soldout */
+        elseif amount = in_amount
+        then
+			update products set p_amount = 0 where product_code = in_code;
+			update products set p_state = 'soldout' where product_code = in_code;
+		else
 			signal sqlstate '45000' set message_text = 'Not enough product';
         end if;
-        else
-			signal sqlstate '45000' set message_text = 'Product does not exist or is discontinued';
+	else
+		signal sqlstate '45000' set message_text = 'Product does not exist or is discontinued';
     end if;
 end $$
 -- -------------------------------------------------------------------------------------------------- --
@@ -93,6 +104,11 @@ begin
     then
     /* Decreasing just by one */
 		update products set p_amount = p_amount + 1 where product_code = in_code;
+        /* If the product was soldout, we change it to available again */
+        if(select p_state from products where product_code = in_code) = 'soldout'
+        then
+			update products set p_state = 'available' where product_code = in_code;
+        end if;
 	else
 		signal sqlstate '45000' set message_text = 'Product does not exist or is discontinued';
 	end if;
@@ -127,7 +143,7 @@ end $$
 drop procedure if exists `updateEmployee`$$
 create procedure `updateEmployee`
 (in `in_id` int, in `new_name` varchar(50), in `new_surname` varchar(50), in `new_username` varchar(20), in `new_passwordHash` varchar(255), 
-in `new_shift` varchar(30), in `new_phone` varchar(15), in `new_photo` varchar(255))
+in `new_shift` varchar(30), in `new_phone` varchar(15), in `new_photo` varchar(255), in `new_role` varchar(15))
 begin
 	/* Validate that the employee exists */
 	if not exists(select employee_id from employees where employee_id = `in_id`)
@@ -143,7 +159,8 @@ begin
             `e_passwordHash` = coalesce(nullif(new_passwordHash, ''), e_passwordHash),
             `e_shift` = coalesce(nullif(new_shift, ''), e_shift),
             `e_phone` = coalesce(nullif(new_phone, ''), e_phone),
-            `e_profilePhoto` = coalesce(nullif(new_photo, ''), e_profilePhoto) 
+            `e_profilePhoto` = coalesce(nullif(new_photo, ''), e_profilePhoto),
+            `e_role` = coalesce(new_role, e_role)
 		where employee_id = `in_id`;
         end if;
 end $$
@@ -212,16 +229,20 @@ begin
 			);
 			/* Increase both the todaysales and totala sales of the employee, we substract the old stored amount to prevent
             the amount to be duplicated */
-            update employees set e_todaySales = e_todaySales + new.s_amount - old.s_amount where employee_id = new.s_saler and new.s_date = curdate();
-            update employees set e_totalSales = e_totalSales + new.s_amount - old.s_amount where employee_id = new.s_saler;
+            update employees set e_todaySales = e_todaySales + new.s_amount - old.s_amount 
+				where employee_id = new.s_saler and new.s_date = curdate();
+            update employees set e_totalSales = e_totalSales + new.s_amount - old.s_amount 
+				where employee_id = new.s_saler;
             /* We check if there's already a report for the current day, if not we create it */
             if not exists(select dailyReport_id from daily_report where dr_date = curdate())
             then
-				insert into daily_report(dr_date, dr_moneyGained, dr_mostSoldProduct) values(curdate(), new.s_amount, mostsoldproduct);
+				insert into daily_report(dr_date, dr_moneyGained, dr_mostSoldProduct, dr_totalSales) 
+                values(curdate(), new.s_amount, mostsoldproduct, 1);
             else
 				set rp_id = (select dailyReport_id from daily_report where dr_date = new.s_date);
 				update daily_report set dr_moneyGained = dr_moneyGained + new.s_amount - old.s_amount where dailyReport_id = rp_id;
                 update daily_report set dr_mostSoldProduct = mostsoldproduct where dailyReport_id = rp_id;
+                update daily_report set dr_totalSales = dr_totalSales + 1 where dailyReport_id = rp_id;
 			end if;
 		else
             signal sqlstate '45000' set message_text = 'invalid date';

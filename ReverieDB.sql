@@ -123,6 +123,7 @@ create table daily_report(
     dr_date date not null,
     dr_moneyGained decimal(10,2) not null,
     dr_mostSoldProduct varchar (10) not null,
+    dr_totalSales int unsigned not null default 0,
     creation_date datetime not null default current_timestamp,
     modification_date datetime on update current_timestamp,
     constraint `p_mostSold` foreign key(`dr_mostSoldProduct`) references products(product_code)

@@ -5,11 +5,12 @@ class dailyreport{
     public string $date;
     public float $moneyMade;
     public string $mostSoldProduct;
+    public int $totalSales;
 
     /* Constructor to create a daily report object from an associative array */
     public function __construct(array $data)
     {
-        $fields = ['dr_date', 'dr_moneyGained', 'dr_mostSoldProduct'];
+        $fields = ['dr_date', 'dr_moneyGained', 'dr_mostSoldProduct', 'dr_totalSales'];
         foreach($fields as $field){
             if(!isset($data[$field])){
                 throw new InvalidArgumentException("Missing info: {$field}");
@@ -30,6 +31,7 @@ class dailyreport{
         $this -> date = $data['dr_date'];
         $this -> moneyMade = (float)$data['dr_moneyGained'];
         $this -> mostSoldProduct = $data['dr_mostSoldProduct']; 
+        $this -> totalSales = $data['dr_totalSales'];
     }
 }
 

@@ -163,6 +163,13 @@ function validateParamsUpdateOnly($input): bool{
     if(isset($input['Phone']) && (!is_string($input['Phone']) || strlen($input['Phone']) > 14 || strlen($input['Phone']) < 10 || !preg_match('/^\+?\d+$/', $input['Phone']))){
         array_push($errors, "Invalid number format, must be 10 to 14 digits and can have a +");
     }
+    if(isset($input['Admin'])){
+        if(!is_bool($input['Admin'])){
+            array_push($errors, "Invalid value for admin privileges");
+        }elseif($_SESSION['role'] !== 'administrator'){
+            array_push($errors, "Nice try, but you cannot make yourself an administrator");
+        }
+    }
 
     if(!empty($errors)){
         http_response_code(400);
@@ -185,7 +192,7 @@ function updateEmployee($conn, $input, $id){
         Note that we allow values to be null because we only want to update the fields that are provided 
         But if all parameters are null, we return an error because there is nothing to update
     */
-    $expectedParams = ['Name', 'Surname', 'Username', 'Password', 'Shift', 'Phone', 'Photo'];
+    $expectedParams = ['Name', 'Surname', 'Username', 'Password', 'Shift', 'Phone', 'Photo', 'Admin'];
     foreach($expectedParams as $param){
         if(array_key_exists($param, $input)){
             array_push($newValues, $param);
@@ -206,9 +213,21 @@ function updateEmployee($conn, $input, $id){
         $new_shift = $input['Shift'] ?? null;
         $new_phone = $input['Phone'] ?? null;
         $new_photo = $input['Photo'] ?? null;
+        $admin = $input['Admin'] ?? null;
+        switch($admin){
+            case 1: $new_role = 'administrator'; break;
+            case 0: if($_SESSION['user_id'] == $id){
+                http_response_code(400);
+                echo json_encode(["status"=>"error", "message"=>"You cannot revoke your own admin privileges"]);
+                exit();
+            }else{
+                $new_role = 'employee';
+            } break;
+            default: $new_role = null;
+        }
         /* Prepare the SQL statement to update the employee, using a stored procedure that handles the update logic and validations, plus extra database logic for information integrity */
-        $query = $conn -> prepare('CALL updateEmployee(?, ?, ?, ?, ?, ?, ?, ?)');
-        $query -> bind_param("isssssss", $id, $new_name, $new_surname, $new_username, $new_password, $new_shift, $new_phone, $new_photo);
+        $query = $conn -> prepare('CALL updateEmployee(?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        $query -> bind_param("issssssss", $id, $new_name, $new_surname, $new_username, $new_password, $new_shift, $new_phone, $new_photo, $new_role);
         /* Try to execute the update and return a success response, or catch any exceptions and return an error response */
         try{
             $query->execute();
