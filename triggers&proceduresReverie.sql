@@ -296,19 +296,6 @@ end $$
 -- -------------------------------------------------------------------------------------------------- --
 
 -- -------------------------------------------------------------------------------------------------- --
-/* Trigger to update the state of a product depending on the amount of stock */
-drop trigger if exists `updateProductState` $$
-create trigger `updateProductState`
-after update on products
-for each row
-begin
-	if new.p_amount = 0 and new.p_state != 'discontinued' then
-		update products set p_state = 'soldout' where product_code = new.product_code;
-	elseif new.p_amount > 0 and new.p_state != 'discontinued' then
-		update products set p_state = 'available' where product_code = new.product_code;
-	end if;
-end $$
-delimiter ;
 -- -------------------------------------------------------------------------------------------------- --
 
 /* Tests of Triggers */
