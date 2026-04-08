@@ -4,50 +4,61 @@ class employee{
     /* Employee properties */
     public int $id;
     public string $name;
+    public string $surname;
+    public string $username;
+    public string $password;
     public float $totalSales;
     public float $todaySales;
     public string $photo;
     public string $role;
     public string $shift;
+    public string $phone;
 
     /* Constructor to create an employee object from an associative array */
-    public function __construct(array $data)
+    public function __construct(array $data, $id)
     {
         /* Validate that all required fields are present and have the correct type, throw an exception if any validation fails */
-        $fields = ['ID', 'Name', 'Total Sales', 'Today Sales', 'Role', 'Shift'];
-        foreach($fields as $field){
-            if(!isset($data[$field])){
-                throw new InvalidArgumentException("Missing info: {$field}");
-            }
+        if(isset($id) && (!is_numeric($id) || $id <= 0)){
+            throw new InvalidArgumentException("Invalid ID: {$id}");
         }
-        
-        if(!is_numeric($data['ID'])){
-            throw new InvalidArgumentException("Incorrect ID: {$data['ID']}, must be numeric");
+        if(isset($data['Name']) && (!is_string($data['Name']))){
+            throw new InvalidArgumentException("Invalid name: {$data['Name']} must be string and less than 50 characters");
         }
-        if(!is_numeric($data['Total Sales']) || !is_numeric($data['Today Sales'])){
-            throw new InvalidArgumentException("Incorrect Sales data: {$data['Total Sales']}, {$data['Today Sales']}, must be numeric");
+        if(isset($data['Surname']) && (!is_string($data['Surname']) || strlen($data['Surname']) > 50)){
+            throw new InvalidArgumentException("Invalid surname: {$data['Surname']} must be string and less than 50 characters");
         }
-        if(($data['Total Sales'] < $data['Today Sales'])){
-            throw new InvalidArgumentException("Total Sales Must be Higher Than Today's sales");
+        if(isset($data['Username']) && (!is_string($data['Username']) || strlen($data['Username']) > 20)){
+            throw new InvalidArgumentException("Invalid username: {$data['Username']} must be string and less than 20 characters");
         }
-        if(is_string($data['Role'])){
+        if(isset($data['Password']) && (!is_string($data['Password']))){
+            throw new InvalidArgumentException("Invalid Password, must be string");
+        }
+        if(isset($data['Role'])){
             switch($data['Role']){
-                case 'administrator': break;
+                case 'administrator': break; 
                 case 'employee': break;
-                default: throw new InvalidArgumentException("Not a valid role");
+                default: throw new InvalidArgumentException("Not a valid role"); break;
             }
-        }else{
-                throw new InvalidArgumentException("Incorrect ID: {$data['ID']}, must be numeric");
         }
+        if(isset($data['Shift']) && (!is_string($data['Shift']) || strlen($data['Shift']) > 30)){
+            throw new InvalidArgumentException("Invalid shift: {$data['Shift']} must be string and less than 30 charactersd");
+        }
+        if(isset($data['Phone']) && (strlen($data['Phone']) > 14 || strlen($data['Phone']) < 10 || !preg_match('/^\+?\d+$/', $data['Phone']))){
+            throw new InvalidArgumentException("Invalid number format, must be 10 to 14 digits and can have a +");
+        }    
 
         /* If all validations pass, set the employee properties */
-        $this -> id = (int)$data['ID'];
-        $this -> name = $data['Name'];
-        $this -> totalSales = (float)$data['Total Sales'];
-        $this -> todaySales = (float)$data['Today Sales'];
-        $this -> role = $data['Role'];
-        $this -> shift = $data['Shift']; 
-        $this -> photo = (isset($data['Photo'])) ? $data['Photo'] : ' ';
+        $this -> id = isset($id) ? (int)$id : 0;
+        $this -> name = isset($data['Name']) ? $data['Name'] : '';
+        $this -> surname = (isset($data['Surname'])) ? $data['Surname'] : '';
+        $this -> username = (isset($data['Username'])) ? $data['Username'] : '';
+        $this -> password = (isset($data['Password'])) ? $data['Password'] : '';
+        $this -> totalSales = isset($data['Total Sales']) ? (float)$data['Total Sales'] : 0;
+        $this -> todaySales = isset($data['Today Sales']) ? (float)$data['Today Sales'] : 0;
+        $this -> role = isset($data['Role']) ? $data['Role'] : '';
+        $this -> shift = isset($data['Shift']) ? $data['Shift'] : ''; 
+        $this -> photo = (isset($data['Photo'])) ? $data['Photo'] : '';
+        $this -> phone = (isset($data['Phone'])) ? $data['Phone'] : '';
     }
 }
 

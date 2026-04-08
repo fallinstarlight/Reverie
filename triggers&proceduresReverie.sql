@@ -23,6 +23,8 @@ begin
 				insert into employees(`e_name`, `e_surname`, `e_username`, `e_passwordHash`, `e_shift`, `e_phone`, `e_profilePhoto`) 
                 values(in_name, in_surname, in_username, in_passwordHash, in_shift, in_phone, in_photo);
             end if;
+		else
+			signal sqlstate '45000' set message_text = 'Employee already exists';
         end if;
 	else
 		signal sqlstate '45000' set message_text = 'Employee already exists';

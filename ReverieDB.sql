@@ -136,8 +136,9 @@ select employee_id as ID, concat(e_name, ' ', e_surname) as `Name`, e_totalSales
 e_profilePhoto as Photo, e_role as `Role`, e_shift as Shift
 from employees;
 
+drop view vwProduct;
 create view vwProduct as
-select product_code as `Code`, p_name as Product, concat('$', p_price) as Price, p_description as `Description`, p_amount as Amount,
+select product_code as `Code`, p_name as Name, p_price as Price, p_description as `Description`, p_amount as Amount,
 category_name as `Type`, p_photo as Photo, p_state as State
 from products join categories on products.category_id = categories.category_id;
 

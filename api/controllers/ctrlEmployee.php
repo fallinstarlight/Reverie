@@ -48,7 +48,7 @@ function getResult($rows): array
     if ($rows->num_rows > 0) {
         while ($row = $rows->fetch_assoc()) {
             try {
-                $e = new employee($row);
+                $e = new employee($row, $row['ID']);
                 array_push($employees, $e);
             } catch (InvalidArgumentException $e) {
                 array_push($error, $e->getMessage());
@@ -68,43 +68,19 @@ function getResponse($employee){
         http_response_code(404);
         echo json_encode(["status" => "error", "message" => "No matching records found"]);
     } else {
+        $responseExclude = ['surname', 'username', 'password', 'phone'];
+        $employee = array_map(function($emp) use ($responseExclude) {
+            foreach ($responseExclude as $field) {
+                unset($emp->$field);
+            }
+            return $emp;
+        }, $employee);
         echo json_encode($employee);
     }
 }
 
 
 /* POST FUNCTIONS */
-/* Function to validate input parameters for adding a new employee */
-function validateParams($input): bool{
-    $errors = [];
-    if(!$input['Name'] || !is_string($input['Name']) || strlen($input['Name']) > 50){
-        array_push($errors, "Invalid name");
-    }
-    if(!$input['Surname'] || !is_string($input['Surname']) || strlen($input['Surname']) > 50){
-        array_push($errors, "Invalid surname");
-    }
-    if(!$input['Username'] || !is_string($input['Username']) || strlen($input['Username']) > 20){
-        array_push($errors, "Invalid username");
-    }
-    if(!$input['Password']){
-        array_push($errors, "Password must be provided");
-    }
-    if(!$input['Shift'] || !is_string($input['Shift']) || strlen($input['Shift']) > 30){
-        array_push($errors, "Invalid shift");
-    }
-    if(!$input['Phone'] || !is_string($input['Phone']) || strlen($input['Phone']) > 14 || strlen($input['Phone']) < 10 || !preg_match('/^\+?\d+$/', $input['Phone'])){
-        array_push($errors, "Invalid number format, must be 10 to 14 digits and can have a +");
-    }
-
-    /* Return errorrs or success depending on validation */
-    if(!empty($errors)){
-        http_response_code(400);
-        echo json_encode(["status"=>"error", "errors"=>$errors]);
-        exit;
-    }
-    return 1;
-}
-
 /* 
     Function to insert a new employee into the database 
     Takes two parameters: the database connection and the input data 
@@ -113,72 +89,52 @@ function validateParams($input): bool{
 */
 function inEmployee($conn, $input){
     /* First validate the input parameters to ensure they meet the required criteria */
-    if(validateParams($input)){
-        /* Prepare the SQL statement to insert a new employee */
-        $query = $conn->prepare("CALL inEmployee(?, ?, ?, ?, ?, ?, ?)");
-        /* Hash the password before storing it in the database for security reasons */
-        $passwordHash = password_hash($input['Password'], PASSWORD_DEFAULT);
-        /* Bind the input parameters to the SQL statement, using the hashed password */
-        $query -> bind_param("sssssss", $input['Name'], $input['Surname'], $input['Username'], $passwordHash, $input['Shift'], $input['Phone'], $input['Photo']);
-        /* Try to execute the statement and return a success response, or catch any exceptions and return an error response */
-        try{
-            $query -> execute();
-            http_response_code(200);
-            echo json_encode(["Status"=>"success", 
-                            "Message"=>"Employee added correctly",
-                            "Name"=>"{$input['Name']}.{$input['Surname']}",
-                            "Username"=>"{$input['Username']}",
-                            "Shift"=>"{$input['Shift']}"]);
-        }catch(Exception $e){
-            http_response_code(500);
-            echo json_encode(["status"=>"error", "message"=>"Error performing request: {$e -> getMessage()}"]);
-        }finally{
-           $query->close();
-           $conn->close();
-       }
+    $requiredParams = ['Name', 'Surname', 'Username', 'Password', 'Shift', 'Phone'];
+    $error = [];
+    foreach ($requiredParams as $param) {
+        if (!isset($input[$param])) {
+            array_push($error, "Missing parameter to add {$param}");
+        }
+    }
+    if(!empty($error)){
+        http_response_code(400);
+        echo json_encode(["status" => "error", "error" => $error]);
+        exit();
+    }
+    try {
+        $e = new employee($input, null);
+    } catch (Exception $ex) {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "error" => $ex->getMessage()]);
+        exit();
+    }
+    /* Prepare the SQL statement to insert a new employee */
+    $query = $conn->prepare("CALL inEmployee(?, ?, ?, ?, ?, ?, ?)");
+    /* Hash the password before storing it in the database for security reasons */
+    $passwordHash = password_hash($e->password, PASSWORD_DEFAULT);
+    /* Bind the input parameters to the SQL statement, using the hashed password */
+    $query->bind_param("sssssss", $e->name, $e->surname, $e->username, $passwordHash, $e->shift, $e->phone, $e->photo);
+    /* Try to execute the statement and return a success response, or catch any exceptions and return an error response */
+    try {
+        $query->execute();
+        http_response_code(200);
+        echo json_encode([
+            "Status" => "success",
+            "Message" => "Employee added correctly",
+            "Name" => "{$e->name} {$e->surname}",
+            "Username" => "{$e->username}",
+            "Shift" => "{$e->shift}"
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "Error performing request: {$e->getMessage()}"]);
+    } finally {
+        $query->close();
+        $conn->close();
     }
 }
 
 /* PUT FUNCTIONS */
-
-/* 
-    Validate input parameters for updating an employee 
-    We don't validate the password here as we don't have any sets of rules for passwords
-    Validation (like lenght, use of special characters, uppercase, numbers, etc.) could be implemented in the frontend
-*/
-function validateParamsUpdateOnly($input): bool{
-    $errors = [];
-    if(isset($input['Name']) && (!is_string($input['Name']) || strlen($input['Name']) > 50)){
-        array_push($errors, "Invalid name");
-    }
-    if(isset($input['Surname']) && (!is_string($input['Surname']) || strlen($input['Surname']) > 50)){
-        array_push($errors, "Invalid surname");
-    }
-    if(isset($input['Username']) && (!is_string($input['Username']) || strlen($input['Username']) > 20)){
-        array_push($errors, "Invalid username");
-    }
-    if(isset($input['Shift']) && (!is_string($input['Shift']) || strlen($input['Shift']) > 30)){
-        array_push($errors, "Invalid shift");
-    }
-    if(isset($input['Phone']) && (!is_string($input['Phone']) || strlen($input['Phone']) > 14 || strlen($input['Phone']) < 10 || !preg_match('/^\+?\d+$/', $input['Phone']))){
-        array_push($errors, "Invalid number format, must be 10 to 14 digits and can have a +");
-    }
-    if(isset($input['Admin'])){
-        if(!is_bool($input['Admin'])){
-            array_push($errors, "Invalid value for admin privileges");
-        }elseif($_SESSION['role'] !== 'administrator'){
-            array_push($errors, "Nice try, but you cannot make yourself an administrator");
-        }
-    }
-
-    if(!empty($errors)){
-        http_response_code(400);
-        echo json_encode(["status"=>"error", "errors"=>$errors]);
-        exit;
-    }
-    return 1;
-}
-
 /* 
     Function to update an existing employee in the database 
     Takes three parameters: the database connection, the input data, and the employee ID 
@@ -204,30 +160,35 @@ function updateEmployee($conn, $input, $id){
         exit();
     }
     /* Validate the provided parameters and return an error if any of them are invalid, otherwise proceed with the update */
-    if(validateParamsUpdateOnly($input)){
-        $new_name = $input['Name'] ?? null;
-        $new_surname = $input['Surname'] ?? null;
-        $new_username = $input['Username'] ?? null;
+        try{
+            $e = new employee($input, $id);
+        }catch(InvalidArgumentException $ex){
+            http_response_code(400);
+            echo json_encode(["status" => "error", "error" => $ex->getMessage()]);
+            exit();
+        }
         /* Hash the new password if it is provided, otherwise set it to null to indicate that it should not be updated */
-        $new_password = (isset($input['Password'])) ? password_hash($input['Password'], PASSWORD_DEFAULT) :  null;
-        $new_shift = $input['Shift'] ?? null;
-        $new_phone = $input['Phone'] ?? null;
-        $new_photo = $input['Photo'] ?? null;
-        $admin = $input['Admin'] ?? null;
+        $new_password = (isset($e->password)) ? password_hash($e->password, PASSWORD_DEFAULT) :  null;
+        $admin = ($_SESSION['role'] === 'administrator') ? $input['Admin'] : null;
         switch($admin){
-            case 1: $new_role = 'administrator'; break;
-            case 0: if($_SESSION['user_id'] == $id){
-                http_response_code(400);
-                echo json_encode(["status"=>"error", "message"=>"You cannot revoke your own admin privileges"]);
-                exit();
-            }else{
-                $new_role = 'employee';
-            } break;
-            default: $new_role = null;
+            case 1:
+                $new_role = 'administrator';
+                break;
+            case 0:
+                if ($_SESSION['user_id'] == $id) {
+                    http_response_code(400);
+                    echo json_encode(["status" => "error", "message" => "You cannot revoke your own admin privileges"]);
+                    exit();
+                } else {
+                    $new_role = 'employee';
+                }
+                break;
+            default:
+                $new_role = null;
         }
         /* Prepare the SQL statement to update the employee, using a stored procedure that handles the update logic and validations, plus extra database logic for information integrity */
         $query = $conn -> prepare('CALL updateEmployee(?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        $query -> bind_param("issssssss", $id, $new_name, $new_surname, $new_username, $new_password, $new_shift, $new_phone, $new_photo, $new_role);
+        $query -> bind_param("issssssss", $id, $e->name, $e->surname, $e->username, $new_password, $e->shift, $e->phone, $e->photo, $new_role);
         /* Try to execute the update and return a success response, or catch any exceptions and return an error response */
         try{
             $query->execute();
@@ -240,7 +201,6 @@ function updateEmployee($conn, $input, $id){
            $query->close();
            $conn->close();
        }
-    }
 }
 
 /* 
