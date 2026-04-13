@@ -7,14 +7,12 @@ $password = " "; // Use your actual database password here
 $dbname = "Reverie";
 // change the file name to connection.php or it will not work.
 
-// Create connection
-$conn = new mysqli($servername, $username, $password, $dbname);
-
-// Check connection
-if ($conn->connect_error) {
+try{
+    $conn = new mysqli($servername, $username, $password, $dbname);
+}catch(Exception $e){
     header('Content-Type: application/json');
     http_response_code(500);
-    echo json_encode(["status" => "error", "message" => "Connection failed: ".$conn -> connect_error]);
+    echo json_encode(["status" => "error", "message" => "Connection failed: ".$e->getMessage()]);
     exit;
 }
 
