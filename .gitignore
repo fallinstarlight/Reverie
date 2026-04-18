@@ -75,6 +75,3 @@ temp/
 .yarn/unplugged
 .yarn/build-state.yml
 .yarn/install-state.gz
-
-#original connection.php file, cause it has my credentials
-api/config/connection.php

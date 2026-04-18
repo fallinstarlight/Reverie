@@ -32,16 +32,15 @@ values
     ('Amy', 'Rose', 'amyrose65', '__my__password__123', '7712243798', 'Tuesday, Saturday'),
     ('Hello', 'Kitty', 'littlekitty', 'unhackablepwd', '7710987321', 'Wednesday, Sunday'),
     ('Patrick', 'Star', 'ispatrick', 'no, this is patrick', '9999999999', 'Thursday'),
-    ('Jenny', 'XJ9', 'teenRobot', 'Life stinks man', 'employee', 'Monday, Thursday')
+    ('Jenny', 'XJ9', 'teenRobot', 'Life stinks man', '7711642835', 'Monday, Thursday')
 ;
 insert into employees(`e_name`, `e_surname`, `e_username`, `e_passwordHash`, `e_role`)
 values('Violet', 'Evergarden', 'VioletE', '1707##love', 'administrator');
-
 select * from employees;
 
 /*LISTA DE PASSWORDS
 USERNAME / PWD
-pinkiepierules / strongpasswordabc
+pinkie123 / strongpasswordabc
 amyrose65 / __my__password__123
 littlekitty / unhackablepwd
 ispatrick / no, this is patrick

@@ -1,11 +1,15 @@
 <?php
 /* Database connection configuration  used throughout the application */
 
-$servername = "localhost";
-$username = " "; // Use your actual database username here
-$password = " "; // Use your actual database password here
-$dbname = "Reverie";
-// change the file name to connection.php or it will not work.
+$envVars = parse_ini_file("../../.env");
+foreach($envVars as $key => $value) {
+    putenv("$key=$value");
+}
+
+$servername = getenv('SERVER');
+$username = getenv('USERNAME');
+$password = getenv('PASSWORD');
+$dbname = getenv('DATABASE');
 
 try{
     $conn = new mysqli($servername, $username, $password, $dbname);
